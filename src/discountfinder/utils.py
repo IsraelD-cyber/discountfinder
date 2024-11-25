@@ -1,5 +1,16 @@
+import logging
 import csv
 
+
+# Configure the logger
+logging.basicConfig(
+    level=logging.DEBUG,                       # Set the logging level (DEBUG, INFO, WARNING, ERROR, CRITICAL)
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',  # Format for log messages
+    handlers=[
+        logging.FileHandler("./log/app.log", mode='w'),        # Log to a file named 'app.log'
+        logging.StreamHandler()                # Log to the console
+    ]
+)
 
 def search_csv_for_string(file_path, search_string):
     """
@@ -24,8 +35,20 @@ def search_csv_for_string(file_path, search_string):
 
     return matching_rows
 
+def read_csv_to_tuples(filename, sep=','):
+    result = []
+    with open(filename, 'r') as file:
+        reader = csv.reader(file, delimiter=sep)
+        next(reader)  # Skip the header row
 
-import csv
+        for row in reader:
+            if len(row) < 3:
+                print("warning, row less than 4 columns")
+                continue
+            # Ignore the first column and select the next three items
+            result.append(list(row[1:4]))  # row[1:4] gets columns 2, 3, and 4
+
+    return result
 
 
 def search_csv_in_column(reader, search_string, column_index):
@@ -52,11 +75,17 @@ def search_csv_in_column(reader, search_string, column_index):
 
 # Example usage
 """
+#logger.debug("This is a debug message")
+#logger.info("This is an info message")
+#logger.warning("This is a warning message")
+#logger.error("This is an error message")
+#logger.critical("This is a critical message")
 file_path = "example.csv"  # Replace with your file path
 search_string = "Alice"  # Replace with your search string
 column_index = 1  # Replace with the column index (0-based)
 result = search_csv_in_column(file_path, search_string, column_index)
 
+# Example log messages
 if result:
     print(f"Rows containing '{search_string}' in column {column_index}:")
     for row in result:
@@ -75,4 +104,8 @@ if result:
         print(row)
 else:
     print(f"No rows found containing '{search_string}'.")
+    
+# Example usage:
+csv_data = read_csv_to_tuples('data.csv')
+print(csv_data)
 """

@@ -1,36 +1,49 @@
 """
 Find a discount for a store
 """
+import concurrent.futures
 import inspect
 import time
-from datetime import datetime
-from types import NoneType
+from functools import partial
 
 import toga
 from toga.style import Pack
 from toga.style.pack import COLUMN, ROW
-import pandas as pd
-import csv
 from .utils import *
+
+# time elapsed
+'''
+time1 = time.perf_counter()
+icon = toga.Icon(row['Icon'])
+time2 = time.perf_counter()
+elapsed_time = time2 - time1  # Calculate elapsed time
+print(f"{inspect.currentframe().f_lineno}: {elapsed_time:.5f} seconds")
+'''
 
 csvFileName = '/resources/discounts.csv'
 iconsPath = 'resources/icons/'
 PRODUCT_NAME_COL = 1
 club_lut = {("1", "בהצדעה")}
+MAX_ITEMS_IN_DATA_LIST = 30
+
+def init_product_item(row):
+    icon = toga.Icon(row[2])
+    title = row[0]
+    subtitle = row[1]
+
+    return {"icon": icon, "title": title, "subtitle": subtitle}
 
 class DiscountProc:
     def __init__(self, file_path, toga_app):
         self.file_path = file_path
-        self.df = pd.read_csv(f"{file_path}{csvFileName}", sep='\t')
+        self.df = read_csv_to_tuples(f"{file_path}{csvFileName}", sep='\t')
         self.dict_list = []
         self.dialog_info_msg = ""
         self.toga_app = toga_app
         self.name_input = None
         self.table = None
     def main_loop(self):
-        print(f"{inspect.currentframe().f_lineno}{time.time()}")
         self.init_data_dict()
-        print(f"{inspect.currentframe().f_lineno}{time.time()}")
         name_label = toga.Label(
             "חיפוש: ",
             style=Pack(padding=(0, 5)),
@@ -52,31 +65,18 @@ class DiscountProc:
         self.toga_app.main_window.show()
 
     def init_data_dict(self):
-        for index, row in self.df.iterrows():
-            time1 = time.perf_counter()
-            '''
-            print(f"Index: {index}, Row Data: {row.to_dict()}")
-            # Access column values by name
-            print(f"Value in 'column_name': {row['Name']}")
-            '''
-            if len(row) < 3:
-                print("warning, row less than 4 columns")
-                continue
-            icon = toga.Icon(self.file_path / iconsPath / row['Icon'])
-            time2 = time.perf_counter()
-            elapsed_time = time2 - time1  # Calculate elapsed time
-            print(f"{inspect.currentframe().f_lineno}: {elapsed_time:.5f} seconds")
-            title = row['Name']
-            subtitle = row['Discount']
-            data_dict = {"icon": icon, "title": title, "subtitle": subtitle}
-            time1 = time.perf_counter()
-            elapsed_time = time1 - time2  # Calculate elapsed time
-            print(f"{inspect.currentframe().f_lineno}: {elapsed_time:.5f} seconds")
-            self.dict_list.append(data_dict)
-            time2 = time.perf_counter()
-            elapsed_time = time2 - time1  # Calculate elapsed time
-            print(f"{inspect.currentframe().f_lineno}: {elapsed_time:.5f} seconds")
+        time1 = time.perf_counter()
+        #pre process
+        for row in self.df:
+            row[2] = self.file_path / iconsPath / row[2]
 
+        #process
+        with concurrent.futures.ThreadPoolExecutor(max_workers=None) as executor:
+            # Map the function to each row and collect results
+            self.dict_list = list(executor.map(init_product_item, self.df))
+        time2 = time.perf_counter()
+        elapsed_time = time2 - time1  # Calculate elapsed time
+        print(f"{inspect.currentframe().f_lineno}: {elapsed_time:.5f} seconds")
     async def text_input_on_change(self, widget):
         print("text_input_on_change")
         self.init_table(self.name_input.value)
@@ -86,12 +86,21 @@ class DiscountProc:
             self.table.data = []
             return
 
-        data = []
-        for data_dict in self.dict_list:
-            product = data_dict["title"]
-            if title_str in product:
-                data.append(data_dict)
-        self.table.data = data
+        time1 = time.perf_counter()
+
+        # process
+        self.table.data = []
+        for index, row in enumerate(self.df):
+            product_name = row[0]
+            if title_str in product_name:
+                self.table.data.append(self.dict_list[index])
+            if len(self.table.data) == MAX_ITEMS_IN_DATA_LIST:
+                print(f"data_list length:{MAX_ITEMS_IN_DATA_LIST}")
+                break
+
+        time2 = time.perf_counter()
+        elapsed_time = time2 - time1  # Calculate elapsed time
+        print(f"{inspect.currentframe().f_lineno}: {elapsed_time:.5f} seconds")
 
     async def list_on_select(self, widget):
         print("list_on_select")
