@@ -4,12 +4,7 @@ import csv
 
 # Configure the logger
 logging.basicConfig(
-    level=logging.DEBUG,                       # Set the logging level (DEBUG, INFO, WARNING, ERROR, CRITICAL)
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',  # Format for log messages
-    handlers=[
-        logging.FileHandler("./log/app.log", mode='w'),        # Log to a file named 'app.log'
-        logging.StreamHandler()                # Log to the console
-    ]
 )
 
 def search_csv_for_string(file_path, search_string):

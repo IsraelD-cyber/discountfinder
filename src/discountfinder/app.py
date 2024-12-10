@@ -5,6 +5,7 @@ import concurrent.futures
 import inspect
 import time
 from functools import partial
+#import webbrowser
 
 import toga
 from toga.style import Pack
@@ -24,7 +25,8 @@ csvFileName = '/resources/discounts.csv'
 iconsPath = 'resources/icons/'
 PRODUCT_NAME_COL = 1
 club_lut = {("1", "בהצדעה")}
-MAX_ITEMS_IN_DATA_LIST = 30
+WEB_PAGE = 'https://behatsdaa.org.il/'
+MAX_ITEMS_IN_DATA_LIST = 10
 
 def init_product_item(row):
     icon = toga.Icon(row[2])
@@ -35,14 +37,18 @@ def init_product_item(row):
 
 class DiscountProc:
     def __init__(self, file_path, toga_app):
-        self.file_path = file_path
-        self.df = read_csv_to_tuples(f"{file_path}{csvFileName}", sep='\t')
+        self.app_path = file_path
+        self.df = read_csv_to_tuples(f"{self.app_path}{csvFileName}", sep='\t')
         self.dict_list = []
         self.dialog_info_msg = ""
         self.toga_app = toga_app
         self.name_input = None
         self.table = None
+        self.webview = toga.WebView()
+        self.main_container = None
+
     def main_loop(self):
+
         self.init_data_dict()
         name_label = toga.Label(
             "חיפוש: ",
@@ -60,15 +66,23 @@ class DiscountProc:
         main_box = toga.Box(style=Pack(direction=COLUMN))
         main_box.add(name_box)
         main_box.add(self.table)
+
+        self.main_container = toga.OptionContainer(
+            content=[
+                ("חיפוש", main_box),
+                ("אתר אינטרנט", self.webview),
+            ]
+        )
+
         self.toga_app.main_window = toga.MainWindow(title=self.toga_app.formal_name)
-        self.toga_app.main_window.content = main_box
+        self.toga_app.main_window.content = self.main_container
         self.toga_app.main_window.show()
 
     def init_data_dict(self):
         time1 = time.perf_counter()
         #pre process
         for row in self.df:
-            row[2] = self.file_path / iconsPath / row[2]
+            row[2] = self.app_path / iconsPath / row[2]
 
         #process
         with concurrent.futures.ThreadPoolExecutor(max_workers=None) as executor:
@@ -109,17 +123,37 @@ class DiscountProc:
 
     async def discount_info_dialog(self):
         if self.dialog_info_msg != "":
-            await self.toga_app.main_window.dialog(toga.InfoDialog(
+            if await self.toga_app.main_window.dialog(toga.InfoDialog(
                 self.dialog_info_msg, "This is discount"
-            ))
+                )) is None:
+                await self.discount_question_dialog()
+
             self.dialog_info_msg = ""
+
         else:
             await self.toga_app.main_window.dialog(toga.InfoDialog(
                 "None", "This is discount"
             ))
 
+    async def discount_question_dialog(self):
+        if await self.toga_app.main_window.dialog(toga.QuestionDialog("Toga", "Open Browser?")):
+            self.webview.url = WEB_PAGE
+            self.main_container.current_tab = 1
+        else:
+            self.toga_app.main_window.info_dialog(
+                "Shucks...", "Well aren't you a spoilsport... :-("
+            )
+
 class DiscountFinder(toga.App):
     def startup(self):
+        logging.basicConfig(
+            level=logging.DEBUG,  # Set the logging level (DEBUG, INFO, WARNING, ERROR, CRITICAL)
+            handlers=[
+                logging.FileHandler(f"{self.paths.app}/log/app.log", mode='w'),  # Log to a file named 'app.log'
+                logging.StreamHandler()  # Log to the console
+            ]
+        )
+
         dp = DiscountProc(self.paths.app, self)
         dp.main_loop()
 
